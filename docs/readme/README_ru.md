@@ -13,6 +13,7 @@
 
 <div align="center">
 
+[![Website](https://img.shields.io/badge/Website-sabifox.sahebkarami.ir-f97316?style=flat-square&logo=firefoxbrowser&logoColor=white)](https://sabifox.sahebkarami.ir)
 [![Downloads](https://img.shields.io/github/downloads/sabi-karami/sabifox/total?style=flat-square&logo=github&label=Downloads)](https://github.com/sabi-karami/sabifox/releases)
 [![Last Version](https://img.shields.io/github/v/release/sabi-karami/sabifox?style=flat-square&label=Version)](https://github.com/sabi-karami/sabifox/releases/latest)
 [![License](https://img.shields.io/github/license/sabi-karami/sabifox?style=flat-square&label=License)](../../LICENSE)

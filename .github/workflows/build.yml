@@ -408,10 +408,7 @@ jobs:
         with:
           path: release
           merge-multiple: true
-      # A copy of each file with the version after the program's name; and
-      # the app's files under their names before 1.0.9 (SABIFOX-Legacy-*),
-      # which the update and the Android Download button of those versions
-      # look for.
+      # A copy of each file with the version after the program's name.
       - name: Versioned names
         working-directory: release
         run: |
@@ -420,9 +417,7 @@ jobs:
             case "$f" in
               SABIFOX-*)
                 rest="${f#SABIFOX-}"
-                cp "$f" "SABIFOX-$v-$rest"
-                cp "$f" "SABIFOX-Legacy-$rest"
-                cp "$f" "SABIFOX-Legacy-$v-$rest" ;;
+                cp "$f" "SABIFOX-$v-$rest" ;;
               sabifox-core-*) cp "$f" "sabifox-core-$v-${f#sabifox-core-}" ;;
             esac
           done
