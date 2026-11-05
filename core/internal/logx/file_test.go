@@ -83,8 +83,8 @@ func TestLogsKeptForOneWeek(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	want := []string{"sabifox-2026-03-04.log", "sabifox-2026-03-05.log", "sabifox-2026-03-06.log", "sabifox-2026-03-07.log",
-		"sabifox-2026-03-08.log", "sabifox-2026-03-09.log", "sabifox-2026-03-10.log", "notes.txt"}
+	want := []string{"notes.txt", "sabifox-2026-03-04.log", "sabifox-2026-03-05.log", "sabifox-2026-03-06.log",
+		"sabifox-2026-03-07.log", "sabifox-2026-03-08.log", "sabifox-2026-03-09.log", "sabifox-2026-03-10.log"}
 	if got := logNames(t, dir); strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Fatalf("files = %v", got)
 	}
@@ -94,7 +94,7 @@ func TestLogsKeptForOneWeek(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := logNames(t, dir)
-	if len(got) != 8 || got[0] != "sabifox-2026-03-05.log" || got[6] != "sabifox-2026-03-11.log" {
+	if len(got) != 8 || got[1] != "sabifox-2026-03-05.log" || got[7] != "sabifox-2026-03-11.log" {
 		t.Fatalf("after the eighth day started: %v", got)
 	}
 }
