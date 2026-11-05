@@ -1,0 +1,16 @@
+SABIFOX
+Copyright (C) 2026 Saheb Karami
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version. See LICENSE.
+
+SABIFOX is a modified version of Arman VPN
+(https://github.com/armanlife/arman-vpn-client), released under the
+GNU General Public License v3.0. Modified by Saheb Karami on 2026-11-05:
+renamed and rebranded, new icons and artwork, its own update channel and
+release signing keys.
+
+SABIFOX is not made, owned, sponsored, or endorsed by Mozilla, and is not
+affiliated with Mozilla in any way.
