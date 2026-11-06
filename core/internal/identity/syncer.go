@@ -21,6 +21,9 @@ type State struct {
 	OriginalZone string `json:"original_zone,omitempty"`
 	// AppliedZone is the zone the sync set.
 	AppliedZone string `json:"applied_zone,omitempty"`
+	// BlockTrackers blocks advertising, tracking, malware, phishing and
+	// crypto-mining sites in the proxy (trackers.go).
+	BlockTrackers bool `json:"block_trackers,omitempty"`
 }
 
 // Syncer keeps the system time zone on the exit's while enabled and

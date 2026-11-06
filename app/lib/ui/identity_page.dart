@@ -86,6 +86,37 @@ class _IdentityPageState extends State<IdentityPage> {
     }
   }
 
+  Future<void> _setTrackers(bool on) async {
+    setState(() => _busy = true);
+    try {
+      final r = await widget.core.call((api) => api.setBlockTrackers(on));
+      if (!mounted) return;
+      setState(() => _report = r);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _launch(String id) async {
+    try {
+      await widget.core.call((api) => api.launchPrivateBrowser(id));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t('مرورگر خصوصی باز شد', 'The private browser started'),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
   bool get _fa => Localizations.localeOf(context).languageCode == 'fa';
 
   String _t(String fa, String en) => _fa ? fa : en;
@@ -291,6 +322,24 @@ class _IdentityPageState extends State<IdentityPage> {
       ),
     );
 
+    final trackers = r['block_trackers'] == true;
+    checks.add(
+      _Check(
+        trackers ? _Level.ok : _Level.warn,
+        Icons.block_rounded,
+        trackers
+            ? _t('ردیاب‌ها مسدودند', 'Trackers are blocked')
+            : _t('ردیاب‌ها مسدود نیستند', 'Trackers are not blocked'),
+        _t(
+          'ردیاب‌های تبلیغاتی، مستقل از نشانی IP، شما را از سایتی به سایت دیگر دنبال می‌کنند.',
+          'Ad trackers follow you from site to site whatever your IP address.',
+        ),
+        trackers
+            ? null
+            : _t('«مسدودسازی ردیاب‌ها» را در بالا روشن کنید.', 'Turn on tracker blocking above.'),
+      ),
+    );
+
     if (leaks['iran_direct'] == true) {
       checks.add(
         _Check(
@@ -413,6 +462,12 @@ class _IdentityPageState extends State<IdentityPage> {
         ? _color(_Level.warn, c)
         : c.error;
     final sync = _map(r['sync']);
+    final browsers = [
+      for (final b in (r['browsers'] as List<Object?>? ?? const []))
+        if (b is Map<String, Object?>) b,
+    ];
+    final isDesktop =
+        Platform.isWindows || Platform.isLinux || Platform.isMacOS;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
@@ -508,6 +563,26 @@ class _IdentityPageState extends State<IdentityPage> {
               ],
             ),
           ),
+        Card(
+          child: SwitchListTile(
+            secondary: const Icon(Icons.block_rounded),
+            title: Text(
+              _t(
+                'مسدودسازی ردیاب‌ها، بدافزار و فیشینگ',
+                'Block trackers, malware and phishing',
+              ),
+            ),
+            subtitle: Text(
+              _t(
+                'تبلیغات و ردیاب‌های فارسی و خارجی، سایت‌های بدافزار، فیشینگ و استخراج رمزارز برای همه‌ی برنامه‌ها بسته می‌شوند.',
+                'Persian and foreign ads and trackers, malware, phishing and mining sites are blocked for every app.',
+              ),
+            ),
+            value: r['block_trackers'] == true,
+            onChanged: _busy ? null : _setTrackers,
+          ),
+        ),
+        if (browsers.isNotEmpty || isDesktop) _browserCard(context, browsers),
         for (final check in checks) _checkTile(context, check),
         const SizedBox(height: 12),
         FilledButton.icon(
@@ -525,6 +600,75 @@ class _IdentityPageState extends State<IdentityPage> {
           textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+
+  Widget _browserCard(
+    BuildContext context,
+    List<Map<String, Object?>> browsers,
+  ) {
+    final theme = Theme.of(context);
+    final connected = _report?['connected'] == true;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.privacy_tip_rounded),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _t('مرورگر خصوصی', 'Private browser'),
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _t(
+                'یک پروفایل جدا که همه‌چیزش فقط از وی‌پی‌ان می‌گذرد (DNS هم)، WebRTC نشت نمی‌دهد، زبانش انگلیسی است و اگر وی‌پی‌ان قطع شود اصلاً وصل نمی‌شود. در فایرفاکس، ضداثرانگشت هم روشن است (مثل Tor Browser: منطقه‌ی زمانی UTC، فونت‌ها و Canvas یکسان).',
+                'A separate profile: everything goes only through the VPN (DNS too), no WebRTC leaks, English language, and no connection at all if the VPN drops. In Firefox fingerprinting resistance is on as well (like Tor Browser).',
+              ),
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            if (browsers.isEmpty)
+              Text(
+                _t(
+                  'مرورگری پیدا نشد. فایرفاکس را نصب کنید (بهترین گزینه).',
+                  'No browser found. Install Firefox (the best choice).',
+                ),
+                style: theme.textTheme.bodySmall,
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final b in browsers)
+                    FilledButton.tonalIcon(
+                      icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                      label: Text(_str(b['name'])),
+                      onPressed: connected
+                          ? () => _launch(_str(b['id']))
+                          : null,
+                    ),
+                ],
+              ),
+            if (!connected && browsers.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                _t('اول وصل شوید.', 'Connect first.'),
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 

@@ -423,6 +423,14 @@ class CoreApi {
   Future<Map<String, Object?>> setIdentitySync(bool on) =>
       _json('PUT', '/api/identity', {'sync_timezone': on});
 
+  /// Switches blocking trackers, malware, phishing and miners in the proxy.
+  Future<Map<String, Object?>> setBlockTrackers(bool on) =>
+      _json('PUT', '/api/identity', {'block_trackers': on});
+
+  /// Starts the private browser ([browser] an id from the report).
+  Future<void> launchPrivateBrowser(String browser) =>
+      _json('POST', '/api/identity/browser', {'browser': browser});
+
   /// Resolves the core's own names through [servers] and the system DNS.
   Future<List<DnsTestHost>> testDns(List<String> servers) async {
     final j = await _json('POST', '/api/dns/test', {'servers': servers}, _slow);

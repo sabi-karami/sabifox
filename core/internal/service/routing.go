@@ -77,6 +77,7 @@ func routingChanged(a, b config.Routing) bool {
 // Routing that is on but cannot load its lists sends everything through
 // the proxy until they load.
 func (d *Daemon) applyRouting(cfg config.Routing) {
+	cfg = d.effectiveRouting(cfg)
 	var router *routing.Router
 	var problem string
 	if cfg.Enabled {
@@ -199,7 +200,7 @@ func (d *Daemon) wakeRouting() {
 // when woken, until the daemon stops.
 func (d *Daemon) runRoutingUpdates() {
 	for {
-		cfg := d.config().Routing
+		cfg := d.effectiveRouting(d.config().Routing)
 		if cfg.Enabled && (routing.Due(d.paths.RoutingDir, cfg.UpdateInterval.Duration(), routingFiles(cfg)) ||
 			routing.SourceChanged(d.paths.RoutingDir, cfg.GeoSiteURL, cfg.GeoIPURL) ||
 			(appListsWanted && routing.AppListDue(d.paths.RoutingDir, cfg.Region, cfg.UpdateInterval.Duration()))) {
@@ -226,7 +227,7 @@ func (d *Daemon) updateRoutingLists() error {
 	d.routing.updating = true
 	d.routing.mu.Unlock()
 
-	cfg := d.config().Routing
+	cfg := d.effectiveRouting(d.config().Routing)
 	ctx, cancel := context.WithTimeout(context.Background(), listDownloadTimeout)
 	defer cancel()
 	var err error

@@ -45,3 +45,29 @@ func TestTheIdentityAPI(t *testing.T) {
 		t.Fatalf("unknown field: %d", rec.Code)
 	}
 }
+
+// Tracker blocking turns the routing on for its rules alone when the
+// user's routing is off, and adds them to the user's when it is on.
+func TestTrackerBlockingRouting(t *testing.T) {
+	d := newTestDaemon(t)
+	cfg := d.config().Routing
+	cfg.Enabled = false
+	if got := d.effectiveRouting(cfg); got.Enabled {
+		t.Fatal("on without the choice")
+	}
+	if err := d.identity().SetBlockTrackers(true); err != nil {
+		t.Fatal(err)
+	}
+	got := d.effectiveRouting(cfg)
+	if !got.Enabled || len(got.Direct) != 1 || got.Direct[0] != "geoip:private" {
+		t.Fatalf("routing off: %+v", got)
+	}
+	cfg.Enabled, cfg.Block = true, []string{"full:bad.example"}
+	got = d.effectiveRouting(cfg)
+	if !got.Enabled || got.Block[0] != "full:bad.example" {
+		t.Fatalf("routing on: %+v", got)
+	}
+	if len(d.config().Routing.Block) != 0 && d.config().Routing.Block[0] != "full:bad.example" {
+		t.Fatal("changed the config")
+	}
+}

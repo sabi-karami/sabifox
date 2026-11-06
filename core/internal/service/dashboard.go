@@ -238,6 +238,7 @@ func (s *dashboardServer) handler() http.Handler {
 	mux.HandleFunc("GET /api/tun/programs", s.handleTunPrograms)
 	mux.HandleFunc("GET /api/identity", s.handleIdentity)
 	mux.HandleFunc("PUT /api/identity", s.handleIdentityPut)
+	mux.HandleFunc("POST /api/identity/browser", s.handleIdentityBrowser)
 	mux.HandleFunc("POST /api/app/exit", s.handleAppExit)
 	mux.HandleFunc("POST /api/update/download", s.handleUpdateDownload)
 	mux.HandleFunc("POST /api/update/install", s.handleUpdateInstall)

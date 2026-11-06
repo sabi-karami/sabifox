@@ -3,13 +3,18 @@ package service
 import (
 	"errors"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sabi-karami/sabifox/core/internal/config"
 	"github.com/sabi-karami/sabifox/core/internal/identity"
+	"github.com/sabi-karami/sabifox/core/internal/logx"
+	"github.com/sabi-karami/sabifox/core/internal/routing"
 )
 
 // identityFileName keeps the time zone sync's state (identity.Syncer).
@@ -101,6 +106,14 @@ type IdentityView struct {
 	Desktop *identity.Desktop `json:"desktop,omitempty"`
 	// Leaks is what guards against traffic outside the VPN.
 	Leaks IdentityLeaks `json:"leaks"`
+	// BlockTrackers: advertising, tracking, malware, phishing and mining
+	// sites are blocked; TrackerRules the rules in effect (none until the
+	// lists are downloaded).
+	BlockTrackers bool     `json:"block_trackers"`
+	TrackerRules  []string `json:"tracker_rules"`
+	// Browsers are the installed browsers the private browser can start
+	// (computers only).
+	Browsers []identity.Browser `json:"browsers"`
 }
 
 // IdentityLeaks reports the connection's leak protection.
@@ -163,6 +176,18 @@ func (d *Daemon) identityView() IdentityView {
 		EncryptedDNS:  encrypted,
 		IranDirect:    cfg.Routing.Enabled && strings.EqualFold(cfg.Routing.Region, "ir"),
 	}
+	v.BlockTrackers = s.BlockTrackers()
+	v.TrackerRules = []string{}
+	if v.BlockTrackers {
+		v.TrackerRules = identity.TrackerRules(d.listHas)
+	}
+	v.Browsers = []identity.Browser{}
+	switch runtime.GOOS {
+	case "windows", "linux", "darwin":
+		if found := identity.FindBrowsers(); found != nil {
+			v.Browsers = found
+		}
+	}
 	if runtime.GOOS == "android" {
 		// The phone's VPN carries every app, IPv6 and DNS included.
 		v.Leaks.Mode = config.SystemProxyTun
@@ -176,7 +201,8 @@ func (s *dashboardServer) handleIdentity(w http.ResponseWriter, r *http.Request)
 }
 
 type identityRequest struct {
-	SyncTimezone *bool `json:"sync_timezone"`
+	SyncTimezone  *bool `json:"sync_timezone"`
+	BlockTrackers *bool `json:"block_trackers"`
 }
 
 func (s *dashboardServer) handleIdentityPut(w http.ResponseWriter, r *http.Request) {
@@ -195,5 +221,123 @@ func (s *dashboardServer) handleIdentityPut(w http.ResponseWriter, r *http.Reque
 		}
 		s.d.syncIdentity()
 	}
+	if req.BlockTrackers != nil {
+		if err := s.d.identity().SetBlockTrackers(*req.BlockTrackers); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		s.d.applyRouting(s.d.config().Routing)
+		if *req.BlockTrackers {
+			select {
+			case s.d.routing.wake <- struct{}{}:
+			default:
+			}
+		}
+	}
 	writeJSON(w, http.StatusOK, s.d.identityView())
 }
+
+// trackerTags caches the tags of the routing lists for the tracker rules,
+// by the files' modification times.
+var trackerTags struct {
+	mu       sync.Mutex
+	site, ip time.Time
+	have     map[string]bool
+}
+
+func (d *Daemon) listHas(site bool, tag string) bool {
+	sitePath := filepath.Join(d.paths.RoutingDir, routing.GeoSiteFile)
+	ipPath := filepath.Join(d.paths.RoutingDir, routing.GeoIPFile)
+	mod := func(p string) time.Time {
+		if info, err := os.Stat(p); err == nil {
+			return info.ModTime()
+		}
+		return time.Time{}
+	}
+	trackerTags.mu.Lock()
+	defer trackerTags.mu.Unlock()
+	if st, it := mod(sitePath), mod(ipPath); trackerTags.have == nil || !st.Equal(trackerTags.site) || !it.Equal(trackerTags.ip) {
+		have := map[string]bool{}
+		if tags, err := routing.Tags(sitePath); err == nil {
+			for _, t := range tags {
+				have["site:"+t] = true
+			}
+		}
+		if tags, err := routing.Tags(ipPath); err == nil {
+			for _, t := range tags {
+				have["ip:"+t] = true
+			}
+		}
+		trackerTags.have, trackerTags.site, trackerTags.ip = have, st, it
+	}
+	if site {
+		return trackerTags.have["site:"+tag]
+	}
+	return trackerTags.have["ip:"+tag]
+}
+
+// effectiveRouting is the routing with the Identity Shield's tracker
+// blocking: its rules added to Block, and routing on for them; with the
+// user's routing off only the local networks go directly, as without
+// routing. The lists download for it as for routing.
+func (d *Daemon) effectiveRouting(cfg config.Routing) config.Routing {
+	if !d.identity().BlockTrackers() {
+		return cfg
+	}
+	if !cfg.Enabled {
+		cfg.Enabled = true
+		cfg.Direct = []string{"geoip:private"}
+		cfg.Block = nil
+	}
+	rules := identity.TrackerRules(d.listHas)
+	cfg.Block = append(slices.Clone(cfg.Block), rules...)
+	return cfg
+}
+
+// The private browser's profiles live in the data folder.
+const browserDirName = "private-browser"
+
+func (s *dashboardServer) handleIdentityBrowser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Browser string `json:"browser"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	var chosen *identity.Browser
+	for _, b := range identity.FindBrowsers() {
+		if req.Browser == "" || b.ID == req.Browser {
+			chosen = &b
+			break
+		}
+	}
+	if chosen == nil {
+		writeError(w, http.StatusNotFound, identity.ErrNoBrowser.Error())
+		return
+	}
+	addr, user, _ := s.d.ProxyEndpoint()
+	if addr == "" || !s.d.IsOn() {
+		writeError(w, http.StatusConflict, "connect first: the private browser goes only through the VPN")
+		return
+	}
+	if user != "" {
+		writeError(w, http.StatusConflict, "the local proxy has a login (proxy.username), which browsers cannot send; remove it to use the private browser")
+		return
+	}
+	country, city := s.d.exitPlace()
+	err := identity.Launch(*chosen, identity.LaunchOptions{
+		Proxy:      addr,
+		ProfileDir: filepath.Join(s.d.paths.Dir, browserDirName, chosen.ID),
+		TimeZone:   identity.ZoneFor(country, city),
+		URL:        identityCheckURL,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	logx.Info("private browser started browser=%s", chosen.ID)
+	writeJSON(w, http.StatusOK, map[string]string{"browser": chosen.ID})
+}
+
+// identityCheckURL is the site's check of what a browser shows.
+const identityCheckURL = "https://sabifox.sahebkarami.ir/check"
