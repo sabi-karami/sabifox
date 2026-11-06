@@ -16,6 +16,7 @@ import (
 	"github.com/sabi-karami/sabifox/core/internal/config"
 	"github.com/sabi-karami/sabifox/core/internal/fxa"
 	"github.com/sabi-karami/sabifox/core/internal/guardian"
+	"github.com/sabi-karami/sabifox/core/internal/identity"
 	"github.com/sabi-karami/sabifox/core/internal/logx"
 	"github.com/sabi-karami/sabifox/core/internal/netstate"
 	"github.com/sabi-karami/sabifox/core/internal/proxy"
@@ -226,6 +227,9 @@ type Daemon struct {
 	// pingPass is the pass of measurements while the proxy is off, reused
 	// until shortly before it expires; pingMu guards it.
 	pingPass *guardian.ProxyPassInfo
+	// identitySync keeps the system time zone on the exit's (identity.go).
+	identityOnce sync.Once
+	identitySync *identity.Syncer
 }
 
 func NewDaemon(paths DataPaths, forceVerbose bool) (*Daemon, error) {
@@ -308,7 +312,9 @@ func (d *Daemon) Run() error {
 	d.applyRouting(d.config().Routing)
 	go d.runRoutingUpdates()
 	go d.watchNetwork()
+	go d.runIdentitySync()
 	d.superviseEngine()
+	d.identity().Restore()
 	d.CloseTunListener()
 	if d.dashboard != nil {
 		d.dashboard.close()

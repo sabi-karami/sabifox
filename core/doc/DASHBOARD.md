@@ -150,3 +150,9 @@ Settings changes to `proxy` or `network` restart the proxy engine (open tunnels 
 | TUN mode state and the TUN's SOCKS listener | [tun.go](../internal/service/tun.go) |
 
 Tests: `internal/service/dashboard_test.go` (request policy, login, settings, accounts, sign-in with code retry, logs, connection test).
+
+
+## Identity Shield
+
+- `GET /api/identity`: what still points at Iran: the system time zone (`system_zone`, `system_zone_iana`, `system_offset_minutes`, `system_iran`), the exit (`exit_country`, `exit_city`, `exit_zone`, `exit_offset_minutes`), the desktop's Persian keyboard, languages and fonts (`desktop`), the leak protection (`leaks`) and the time zone sync (`sync`).
+- `PUT /api/identity` `{"sync_timezone": true}`: while connected the system time zone follows the exit country (Windows `tzutil`, Linux `timedatectl`); the user's zone is saved in `identity.json` first and restored on disconnect, on exit, or at the next start after a crash. A zone the user picks meanwhile is left alone. 409 where the app cannot set the zone (macOS, Android).

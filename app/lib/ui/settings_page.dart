@@ -14,6 +14,7 @@ import '../desktop/desktop_bridge.dart';
 import '../l10n/app_localizations.dart';
 import '../platform.dart';
 import 'bypass_apps_page.dart';
+import 'identity_page.dart';
 import 'connection_mode.dart';
 import 'format.dart';
 import 'port_dialog.dart';
@@ -471,6 +472,18 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Switch(
             value: s.showPublicIp,
             onChanged: (v) => s.update(showPublicIp: v),
+          ),
+        ),
+        _Row(
+          icon: Icons.verified_user_rounded,
+          label: Localizations.localeOf(context).languageCode == 'fa'
+              ? 'سپر هویت'
+              : 'Identity Shield',
+          child: const Icon(Icons.chevron_right_rounded),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => IdentityPage(core: widget.core),
+            ),
           ),
         ),
         if (Platform.isAndroid)

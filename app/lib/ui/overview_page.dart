@@ -16,6 +16,7 @@ import '../l10n/app_localizations.dart';
 import '../platform.dart';
 import 'connection_mode.dart';
 import 'format.dart';
+import 'identity_page.dart';
 import 'port_dialog.dart';
 import 'signin_dialog.dart';
 import 'widgets.dart';
@@ -619,6 +620,8 @@ class _DesktopHome extends StatelessWidget {
                   children: [cards[0], const SizedBox(height: 12), cards[1]],
                 ),
         ),
+        const SizedBox(height: 12),
+        _ShieldCard(core: core, palette: p),
       ],
     );
   }
@@ -1389,6 +1392,8 @@ class _PhoneHome extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _HomeData(status: status, palette: p, onTap: onOpenAccounts),
+                const SizedBox(height: 12),
+                _ShieldCard(core: core, palette: p),
               ],
             ],
           ),
@@ -1429,6 +1434,60 @@ class _Glow extends StatelessWidget {
 /// The height of the home cards' content: the data card's ring; smaller
 /// on the computer, whose controls above the cards are small.
 double _homeCardContent(bool compact) => compact ? 46 : 62;
+
+/// Opens the Identity Shield (identity_page.dart): what on this device
+/// still points at Iran, and the time zone sync.
+class _ShieldCard extends StatelessWidget {
+  const _ShieldCard({required this.core, required this.palette});
+
+  final CoreController core;
+  final _HomePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final fa = Localizations.localeOf(context).languageCode == 'fa';
+    final theme = Theme.of(context);
+    return _HomeCard(
+      palette: palette,
+      compact: true,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => IdentityPage(core: core)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.verified_user_rounded, color: palette.connected),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  fa ? 'سپر هویت' : 'Identity Shield',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: palette.text,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  fa
+                      ? 'منطقه‌ی زمانی، زبان، فونت و نشت‌ها را بررسی کنید'
+                      : 'Check time zone, language, fonts and leaks',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: palette.muted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: palette.muted),
+        ],
+      ),
+    );
+  }
+}
 
 class _HomeCard extends StatelessWidget {
   const _HomeCard({

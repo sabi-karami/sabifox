@@ -416,6 +416,13 @@ class CoreApi {
     ];
   }
 
+  /// The Identity Shield's report (`GET /api/identity`).
+  Future<Map<String, Object?>> identity() => _json('GET', '/api/identity');
+
+  /// Switches the time zone sync with the exit country.
+  Future<Map<String, Object?>> setIdentitySync(bool on) =>
+      _json('PUT', '/api/identity', {'sync_timezone': on});
+
   /// Resolves the core's own names through [servers] and the system DNS.
   Future<List<DnsTestHost>> testDns(List<String> servers) async {
     final j = await _json('POST', '/api/dns/test', {'servers': servers}, _slow);
